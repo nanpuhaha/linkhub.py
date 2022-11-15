@@ -28,10 +28,10 @@ def __with_metaclass(meta, *bases):
 
 class Singleton(type):
     _instances = {}
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls._instances:
-            cls._instances[cls] = super(Singleton, cls).__call__(*args, **kwargs)
-        return cls._instances[cls]
+    def __call__(self, *args, **kwargs):
+        if self not in self._instances:
+            self._instances[self] = super(Singleton, self).__call__(*args, **kwargs)
+        return self._instances[self]
 
 class Token(__with_metaclass(Singleton)):
     def __init__(self,timeOut = 15):
@@ -50,11 +50,9 @@ class Token(__with_metaclass(Singleton)):
     def get(self, LinkID, SecretKey, ServiceID, AccessID, Scope, forwardIP=None, UseStaticIP=False, UseLocalTimeYN=True):
         postData = json.dumps({"access_id": AccessID , "scope" : Scope})
         callDT = self.getTime(UseStaticIP, UseLocalTimeYN)
-        uri = '/' + ServiceID + '/Token'
+        uri = f'/{ServiceID}/Token'
 
-        #Ugly Code.. StringIO is better but, for compatibility.... need to enhance.
-        hmacTarget = ""
-        hmacTarget += "POST\n"
+        hmacTarget = "" + "POST\n"
         hmacTarget += Utils.b64_sha256(postData) + "\n"
         hmacTarget += callDT + "\n"
         if forwardIP != None : hmacTarget += forwardIP + "\n"
@@ -65,7 +63,7 @@ class Token(__with_metaclass(Singleton)):
 
         headers = {'x-lh-date':callDT , 'x-lh-version':LINKHUB_APIVersion}
         if forwardIP != None : headers['x-lh-forwarded'] = forwardIP
-        headers['Authorization'] = 'LINKHUB ' + LinkID + ' ' + hmac
+        headers['Authorization'] = f'LINKHUB {LinkID} {hmac}'
         headers['Content-Type'] = 'Application/json'
 
         conn = self._getconn(UseStaticIP)
@@ -75,54 +73,68 @@ class Token(__with_metaclass(Singleton)):
         response = conn.getresponse()
         responseString = response.read()
 
-        if response.status != 200:
-            err = Utils.json2obj(responseString)
-            raise LinkhubException(int(err.code), err.message)
-        else:
+        if response.status == 200:
             return Utils.json2obj(responseString)
+        err = Utils.json2obj(responseString)
+        raise LinkhubException(int(err.code), err.message)
 
     def balance(self, Token, UseStaticIP=False):
         conn = self._getconn(UseStaticIP)
 
-        conn.request('GET','/' + Token.serviceID + '/Point','',{'Authorization':'Bearer ' + Token.session_token})
+        conn.request(
+            'GET',
+            f'/{Token.serviceID}/Point',
+            '',
+            {'Authorization': f'Bearer {Token.session_token}'},
+        )
+
 
         response = conn.getresponse()
         responseString = response.read()
 
-        if response.status != 200 :
-            err = Utils.json2obj(responseString)
-            raise LinkhubException(int(err.code), err.message)
-        else:
+        if response.status == 200:
             return float(Utils.json2obj(responseString).remainPoint)
+        err = Utils.json2obj(responseString)
+        raise LinkhubException(int(err.code), err.message)
 
     def partnerBalance(self, Token, UseStaticIP=False):
         conn = self._getconn(UseStaticIP)
 
-        conn.request('GET','/' + Token.serviceID + '/PartnerPoint','',{'Authorization':'Bearer ' + Token.session_token})
+        conn.request(
+            'GET',
+            f'/{Token.serviceID}/PartnerPoint',
+            '',
+            {'Authorization': f'Bearer {Token.session_token}'},
+        )
+
 
         response = conn.getresponse()
         responseString = response.read()
 
-        if response.status != 200 :
-            err = Utils.json2obj(responseString)
-            raise LinkhubException(int(err.code), err.message)
-        else:
+        if response.status == 200:
             return float(Utils.json2obj(responseString).remainPoint)
+        err = Utils.json2obj(responseString)
+        raise LinkhubException(int(err.code), err.message)
 
     # 파트너 포인트충전 팝업 URL 추가 - 2017/08/29
     def getPartnerURL(self, Token, TOGO, UseStaticIP=False):
         conn = self._getconn(UseStaticIP)
 
-        conn.request('GET','/' + Token.serviceID + '/URL?TG='+TOGO,'', {'Authorization':'Bearer ' + Token.session_token})
+        conn.request(
+            'GET',
+            f'/{Token.serviceID}/URL?TG={TOGO}',
+            '',
+            {'Authorization': f'Bearer {Token.session_token}'},
+        )
+
 
         response = conn.getresponse()
         responseString = response.read()
 
-        if response.status != 200 :
-            err = Utils.json2obj(responseString)
-            raise LinkhubException(int(err.code), err.message)
-        else:
+        if response.status == 200:
             return Utils.json2obj(responseString).url
+        err = Utils.json2obj(responseString)
+        raise LinkhubException(int(err.code), err.message)
 
     def getTime(self, UseStaticIP=False, UseLocalTimeYN=True):
         if(UseLocalTimeYN == True):
@@ -135,11 +147,10 @@ class Token(__with_metaclass(Singleton)):
         response = conn.getresponse()
         responseString = response.read()
 
-        if response.status != 200 :
-            err = Utils.json2obj(responseString)
-            raise LinkhubException(int(err.code), err.message)
-        else:
+        if response.status == 200:
             return responseString.decode('utf-8')
+        err = Utils.json2obj(responseString)
+        raise LinkhubException(int(err.code), err.message)
 
 class LinkhubException(Exception):
     def __init__(self, code, message):
